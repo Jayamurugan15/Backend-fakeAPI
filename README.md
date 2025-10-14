@@ -22,6 +22,13 @@ npm run dev
 
 The server will run on `http://localhost:3001`
 
+## 🫶 Support
+
+Your support means a lot. It takes months of hard work to create quality content and present it to you. You can show your support for me with a STAR(⭐) to this repository.
+
+  > Many Thanks to all the `Stargazers` who have supported this project with stars(⭐)
+    [![Stargazers repo roster for tapascript/fake-apis](https://reporoster.com/stars/tapascript/fake-apis)](https://github.com/atapas/tapascript/fake-apis)
+
 ## API Endpoints
 
 ### User Management
@@ -127,6 +134,14 @@ GET /api/products?category={categoryId}&sort={sortBy}&filter={filterBy}&search={
 
 ```bash
 GET /api/categories
+```
+
+### Movies
+
+#### Get All Movies
+
+```bash
+GET /api/movies
 ```
 
 ## Sample Data
