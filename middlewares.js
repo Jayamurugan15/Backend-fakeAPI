@@ -4,7 +4,7 @@ const cors = require('cors');
 module.exports = (req, res, next) => {
   // Enable CORS for all routes
   cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173'],
     credentials: true
   })(req, res, () => {});
 
@@ -21,7 +21,7 @@ module.exports = (req, res, next) => {
     const userId = req.url.match(/\/api\/users\/(\d+)\/posts$/)[1];
     const db = require('./db.json');
     const userPosts = db.posts.filter(post => post.userId === userId);
-    
+
     res.json(userPosts);
     return;
   }
@@ -33,7 +33,7 @@ module.exports = (req, res, next) => {
     const sortBy = url.searchParams.get('sort') || 'name';
     const filterBy = url.searchParams.get('filter') || 'all';
     const search = url.searchParams.get('search');
-    
+
     const db = require('./db.json');
     let products = [...db.products];
 
@@ -52,7 +52,7 @@ module.exports = (req, res, next) => {
     // Search functionality
     if (search) {
       const searchLower = search.toLowerCase();
-      products = products.filter(product => 
+      products = products.filter(product =>
         product.name.toLowerCase().includes(searchLower) ||
         product.description.toLowerCase().includes(searchLower) ||
         product.tags.some(tag => tag.toLowerCase().includes(searchLower))
@@ -90,9 +90,14 @@ module.exports = (req, res, next) => {
     req.url = req.url.replace('/api/products', '/products');
   }
 
-  // Transform category routes to include /api prefix  
+  // Transform category routes to include /api prefix
   if (req.url.startsWith('/api/categories')) {
     req.url = req.url.replace('/api/categories', '/categories');
+  }
+
+  // Transform movies routes to include /api prefix
+  if (req.url.startsWith('/api/movies')) {
+    req.url = req.url.replace('/api/movies', '/movies');
   }
 
   // Add realistic response headers

@@ -23,7 +23,8 @@ server.get('/api/health', (req, res) => {
       users: '/api/users/:id',
       userPosts: '/api/users/:id/posts',
       products: '/api/products',
-      categories: '/api/categories'
+      categories: '/api/categories',
+      movies: '/api/movies'
     }
   });
 });
@@ -53,6 +54,7 @@ server.listen(PORT, () => {
   console.log(`   GET  /api/users/:id/posts        - Get user posts`);
   console.log(`   GET  /api/products               - Get products (with filtering)`);
   console.log(`   GET  /api/categories             - Get product categories`);
+  console.log(`   GET  /api/movies                 - Get movies`);
   console.log('');
   console.log('🎯 Example URLs:');
   console.log(`   http://localhost:${PORT}/api/users/1`);
