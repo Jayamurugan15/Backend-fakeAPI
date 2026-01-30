@@ -37,7 +37,7 @@ server.get('/api/health', (req, res) => {
 // Add custom routes for better API structure
 server.get('/api/users/:id/posts', (req, res) => {
   const userId = req.params.id;
-  const db = router.db; // Get the database
+  const db = require('./db.json'); // Get the database
   if (!db) {
     return res.status(500).json({ error: 'Database not loaded' });
   }
@@ -53,7 +53,7 @@ server.get('/api/products', (req, res) => {
   const filterBy = url.searchParams.get('filter') || 'all';
   const search = url.searchParams.get('search');
 
-  const db = router.db;
+  const db = require('./db.json');
   if (!db) {
     return res.status(500).json({ error: 'Database not loaded' });
   }

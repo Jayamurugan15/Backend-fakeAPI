@@ -7,7 +7,6 @@
     "start": "json-server --watch db.json --port 3001 --middlewares ./middlewares.js",
     "dev": "json-server --watch db.json --port 3001 --middlewares ./middlewares.js --delay 500",
     "reset": "cp db-backup.json db.json && echo 'Database reset to initial state'"
-    
   },
   "keywords": [
     "json-server",
