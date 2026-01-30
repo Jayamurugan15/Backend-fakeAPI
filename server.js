@@ -1,29 +1,79 @@
-// server.js - Custom JSON Server setup
+// server.js - Consolidated JSON Server for Vercel deployment
 const jsonServer = require('json-server');
-const middlewares = require('./middlewares');
+const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const server = jsonServer.create();
-const router = jsonServer.router('db.json');
-const defaultMiddlewares = jsonServer.defaults();
 
+// Load database
+let db;
+try {
+  const dbPath = path.join(__dirname, 'db.json');
+  db = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+} catch (error) {
+  console.error('Error loading database:', error);
+  db = {
+    users: [],
+    posts: [],
+    categories: [],
+    products: [],
+    cart: [],
+    movies: []
+  };
+}
+
+const router = jsonServer.router(db);
+const defaultMiddlewares = jsonServer.defaults({
+  noCors: true // Disable default CORS to use custom
+});
+
+// CORS Configuration
 server.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', '*'],  // Add '*' for Vercel testing if needed
-  credentials: true
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', '*'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Set default middlewares (logger, static, cors and no-cache)
+// Handle preflight requests
+server.options('*', cors());
+
+// Custom middleware - inline version
+server.use((req, res, next) => {
+  // Add realistic response headers
+  res.setHeader('X-API-Version', '1.0');
+  res.setHeader('X-Response-Time', Date.now().toString());
+
+  // Log requests in development
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  
+  if (!isProduction) {
+    console.log(`${req.method} ${req.originalUrl || req.url} - ${new Date().toISOString()}`);
+    
+    // Add delay for realistic API simulation (only in dev mode)
+    const delay = Math.random() * 500 + 200; // 200-700ms delay
+    setTimeout(() => next(), delay);
+  } else {
+    next();
+  }
+});
+
+// Set default middlewares (logger, static, no-cache)
 server.use(defaultMiddlewares);
 
-// Custom middlewares
-server.use(middlewares);
+// Body parser for JSON
+server.use(jsonServer.bodyParser);
 
 // Custom routes before JSON Server router
+
+// Health check endpoint
 server.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
+    environment: process.env.VERCEL ? 'vercel' : 'local',
     endpoints: {
       users: '/api/users/:id',
       userPosts: '/api/users/:id/posts',
@@ -34,82 +84,105 @@ server.get('/api/health', (req, res) => {
   });
 });
 
-// Add custom routes for better API structure
+// Custom route for user posts
 server.get('/api/users/:id/posts', (req, res) => {
-  const userId = req.params.id;
-  const db = require('./db.json'); // Get the database
-  if (!db) {
-    return res.status(500).json({ error: 'Database not loaded' });
+  try {
+    const userId = req.params.id;
+    
+    if (!db || !db.posts) {
+      return res.status(500).json({ error: 'Database not loaded' });
+    }
+    
+    const posts = db.posts.filter(post => post.userId === userId);
+    res.json(posts);
+  } catch (error) {
+    console.error('Error in /api/users/:id/posts:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
-  const posts = db.get('posts').filter({ userId }).value();
-  res.json(posts);
 });
 
 // Custom route for products with filtering and sorting
 server.get('/api/products', (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const categoryId = url.searchParams.get('category');
-  const sortBy = url.searchParams.get('sort') || 'name';
-  const filterBy = url.searchParams.get('filter') || 'all';
-  const search = url.searchParams.get('search');
+  try {
+    const categoryId = req.query.category;
+    const sortBy = req.query.sort || 'name';
+    const filterBy = req.query.filter || 'all';
+    const search = req.query.search;
 
-  const db = require('./db.json');
-  if (!db) {
-    return res.status(500).json({ error: 'Database not loaded' });
-  }
-  let products = db.get('products').value();
-
-  // Filter by category
-  if (categoryId && categoryId !== 'all') {
-    products = products.filter(product => product.categoryId === categoryId);
-  }
-
-  // Filter by availability
-  if (filterBy === 'in-stock') {
-    products = products.filter(product => product.inStock);
-  } else if (filterBy === 'on-sale') {
-    products = products.filter(product => product.price < product.originalPrice);
-  }
-
-  // Search functionality
-  if (search) {
-    const searchLower = search.toLowerCase();
-    products = products.filter(product =>
-      product.name.toLowerCase().includes(searchLower) ||
-      product.description.toLowerCase().includes(searchLower) ||
-      product.tags.some(tag => tag.toLowerCase().includes(searchLower))
-    );
-  }
-
-  // Sort products
-  products.sort((a, b) => {
-    switch (sortBy) {
-      case 'price-low':
-        return a.price - b.price;
-      case 'price-high':
-        return b.price - a.price;
-      case 'rating':
-        return b.rating - a.rating;
-      case 'newest':
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      case 'name':
-      default:
-        return a.name.localeCompare(b.name);
+    if (!db || !db.products) {
+      return res.status(500).json({ error: 'Database not loaded' });
     }
-  });
+    
+    let products = [...db.products]; // Create a copy
 
-  res.json(products);
+    // Filter by category
+    if (categoryId && categoryId !== 'all') {
+      products = products.filter(product => product.categoryId === categoryId);
+    }
+
+    // Filter by availability
+    if (filterBy === 'in-stock') {
+      products = products.filter(product => product.inStock);
+    } else if (filterBy === 'on-sale') {
+      products = products.filter(product => product.price < product.originalPrice);
+    }
+
+    // Search functionality
+    if (search) {
+      const searchLower = search.toLowerCase();
+      products = products.filter(product =>
+        product.name.toLowerCase().includes(searchLower) ||
+        product.description.toLowerCase().includes(searchLower) ||
+        (product.tags && product.tags.some(tag => tag.toLowerCase().includes(searchLower)))
+      );
+    }
+
+    // Sort products
+    products.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.price - b.price;
+        case 'price-high':
+          return b.price - a.price;
+        case 'rating':
+          return b.rating - a.rating;
+        case 'newest':
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        case 'name':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+    res.json(products);
+  } catch (error) {
+    console.error('Error in /api/products:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
 });
 
-// Use default router
+// Use JSON Server router for other routes
 server.use('/api', router);
-//server.use(router);
 
+// 404 handler
 server.use((req, res) => {
-  res.status(404).json({ error: 'Not Found' });
+  res.status(404).json({ 
+    error: 'Not Found',
+    path: req.path,
+    message: 'The requested resource was not found'
+  });
 });
 
-// For local dev only (comment out or remove for Vercel)
+// Error handler
+server.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' ? 'An error occurred' : err.message
+  });
+});
+
+// For local development only
 if (require.main === module) {
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
